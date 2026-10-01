@@ -1,0 +1,230 @@
+<mxfile host="drawio-plugin" modified="2026-09-28T15:28:36.295Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36" version="22.1.22" etag="sDQyK8LxGeLzpJr3MT7F" type="embed">
+  <diagram id="full" name="Full network map">
+    <mxGraphModel dx="1124" dy="719" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2280" pageHeight="1660" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="&lt;b&gt;rafael-forestproject (prod) — full AWS network map (built + planned)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size:12px'&gt;Solid = in Terraform today (infrastructure/*.tf), steps 1–6 · dry run 2026-09-30: 43 resources applied, nodes + add-ons Running, API locked to one /32 · dashed + &lt;font color='#C2410C'&gt;&lt;b&gt;PLANNED&lt;/b&gt;&lt;/font&gt; = not built yet&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=18;fontColor=#232F3E;" parent="1" vertex="1">
+          <mxGeometry x="40" y="10" width="1500" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="users" value="&lt;font color='#C2410C'&gt;&lt;b&gt;PLANNED&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;App users&lt;/b&gt;&lt;br&gt;(browser)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3E;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.users;verticalLabelPosition=top;verticalAlign=bottom;" parent="1" vertex="1">
+          <mxGeometry x="96" y="245" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="internet" value="Internet" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;fontStyle=1;fontColor=#232F3E;" parent="1" vertex="1">
+          <mxGeometry x="60" y="335" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="cloud" value="AWS Cloud" style="points=[];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;" parent="1" vertex="1">
+          <mxGeometry x="280" y="70" width="1640" height="1360" as="geometry" />
+        </mxCell>
+        <mxCell id="region" value="Region: us-east-1 (N. Virginia)" style="points=[];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_region;strokeColor=#00A4A6;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;dashed=1;" parent="cloud" vertex="1">
+          <mxGeometry x="20" y="40" width="1600" height="1300" as="geometry" />
+        </mxCell>
+        <mxCell id="vpc" value="VPC: rafael-forestproject-prod-vpc&lt;br&gt;&lt;span style='font-weight:normal'&gt;10.0.0.0/16 · DNS support + DNS hostnames&lt;/span&gt;" style="points=[];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc2;strokeColor=#8C4FFF;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#8C4FFF;dashed=0;" parent="region" vertex="1">
+          <mxGeometry x="60" y="50" width="1120" height="1210" as="geometry" />
+        </mxCell>
+        <mxCell id="az_a" value="Availability Zone us-east-1a" style="fillColor=none;strokeColor=#147EBA;dashed=1;verticalAlign=top;fontStyle=1;fontColor=#147EBA;whiteSpace=wrap;html=1;container=1;collapsible=0;spacingTop=6;" parent="vpc" vertex="1">
+          <mxGeometry x="220" y="50" width="430" height="1140" as="geometry" />
+        </mxCell>
+        <mxCell id="pub_a" value="Public subnet a" style="points=[];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#7AA116;fillColor=#F2F6E8;verticalAlign=top;align=left;spacingLeft=30;fontColor=#248814;dashed=0;grStroke=0;" parent="az_a" vertex="1">
+          <mxGeometry x="20" y="50" width="390" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="pub_a_t" value="rafael-forestproject-public-a · &lt;b&gt;10.0.1.0/24&lt;/b&gt;&lt;br&gt;Public IP on launch · 0.0.0.0/0 → IGW&lt;br&gt;Tag kubernetes.io/role/elb = 1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#232F3E;" parent="pub_a" vertex="1">
+          <mxGeometry x="12" y="36" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="nat" value="&lt;b&gt;NAT Gateway a&lt;/b&gt; + Elastic IP&lt;br&gt;rafael-forestproject-nat-a&lt;br&gt;egress for EKS subnet a" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.nat_gateway;" parent="pub_a" vertex="1">
+          <mxGeometry x="60" y="170" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="priv_a" value="EKS subnet a (app)" style="points=[];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#00A4A6;fillColor=#E6F6F7;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;dashed=0;grStroke=0;" parent="az_a" vertex="1">
+          <mxGeometry x="20" y="340" width="390" height="370" as="geometry" />
+        </mxCell>
+        <mxCell id="priv_a_t" value="rafael-forestproject-eks-a · &lt;b&gt;10.0.11.0/24&lt;/b&gt;&lt;br&gt;eks-rt-a: 0.0.0.0/0 → NAT a · S3 → gateway endpoint&lt;br&gt;Tag kubernetes.io/role/internal-elb = 1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#232F3E;" parent="priv_a" vertex="1">
+          <mxGeometry x="12" y="36" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="node_a" value="EKS worker node (A)&lt;br&gt;&lt;span style='font-weight:normal'&gt;managed node group rafael-forestproject-nodegroup · t3.medium · AL2023 · private IP only, no SSH&lt;/span&gt;" style="points=[];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_ec2_instance_contents;strokeColor=#D86613;fillColor=#FFFFFF;verticalAlign=top;align=left;spacingLeft=30;fontColor=#D86613;dashed=0;fontSize=11;" parent="priv_a" vertex="1">
+          <mxGeometry x="30" y="120" width="330" height="225" as="geometry" />
+        </mxCell>
+        <mxCell id="pod_a" value="&lt;font color='#C2410C'&gt;&lt;b&gt;PLANNED&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;learningsteps-api&lt;/b&gt;&lt;br&gt;pod · uvicorn :8000&lt;br&gt;ServiceAccount learningsteps-api" style="sketch=0;html=1;dashed=0;whiteSpace=nowrap;fillColor=#2875E2;strokeColor=#ffffff;points=[];shape=mxgraph.kubernetes.icon;prIcon=pod;fontSize=11;fontColor=#232F3E;aspect=fixed;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;opacity=45;" parent="node_a" vertex="1">
+          <mxGeometry x="250" y="60" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="csi_a" value="Secrets Store CSI + AWS provider (EKS add-on, ns aws-secrets-manager)&lt;br&gt;+ eks-pod-identity-agent · mounts the DB secret into the pod" style="sketch=0;html=1;dashed=0;whiteSpace=nowrap;fillColor=#2875E2;strokeColor=#ffffff;points=[];shape=mxgraph.kubernetes.icon;prIcon=secret;fontSize=10;fontColor=#232F3E;aspect=fixed;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" parent="node_a" vertex="1">
+          <mxGeometry x="20" y="150" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="db_a" value="DB subnet a (database)" style="points=[];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#C925D1;fillColor=#F9EEFA;verticalAlign=top;align=left;spacingLeft=30;fontColor=#8C2A96;dashed=0;grStroke=0;" parent="az_a" vertex="1">
+          <mxGeometry x="20" y="780" width="390" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="db_a_t" value="rafael-forestproject-db-a · &lt;b&gt;10.0.24.0/24&lt;/b&gt;&lt;br&gt;db-rt: no internet route (local only)&lt;br&gt;Member of rafael-forestproject-db-subnetgroup" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#232F3E;" parent="db_a" vertex="1">
+          <mxGeometry x="12" y="36" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rds" value="&lt;b&gt;RDS PostgreSQL 18.6&lt;/b&gt; (primary)&lt;br&gt;rafael-forestproject-postgres · db.t4g.micro · gp3 20 GB&lt;br&gt;db: learning_journal · not public · encrypted&lt;br&gt;sg: rafael-forestproject-db-sg" style="sketch=0;points=[];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#C925D1;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds;" parent="db_a" vertex="1">
+          <mxGeometry x="280" y="140" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="az_a" source="nat" target="priv_a_t">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="az_b" value="Availability Zone us-east-1b" style="fillColor=none;strokeColor=#147EBA;dashed=1;verticalAlign=top;fontStyle=1;fontColor=#147EBA;whiteSpace=wrap;html=1;container=1;collapsible=0;spacingTop=6;" parent="vpc" vertex="1">
+          <mxGeometry x="670" y="50" width="430" height="1140" as="geometry" />
+        </mxCell>
+        <mxCell id="pub_b" value="Public subnet b" style="points=[];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#7AA116;fillColor=#F2F6E8;verticalAlign=top;align=left;spacingLeft=30;fontColor=#248814;dashed=0;grStroke=0;" parent="az_b" vertex="1">
+          <mxGeometry x="20" y="50" width="390" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="pub_b_t" value="rafael-forestproject-public-b · &lt;b&gt;10.0.2.0/24&lt;/b&gt;&lt;br&gt;Public IP on launch · 0.0.0.0/0 → IGW&lt;br&gt;Tag kubernetes.io/role/elb = 1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#232F3E;" parent="pub_b" vertex="1">
+          <mxGeometry x="12" y="36" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="nat_b" value="&lt;b&gt;NAT Gateway b&lt;/b&gt; + Elastic IP&lt;br&gt;rafael-forestproject-nat-b&lt;br&gt;egress for EKS subnet b" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.nat_gateway;" parent="pub_b" vertex="1">
+          <mxGeometry x="60" y="170" width="48" height="48" as="geometry" />
+        </mxCell><mxCell id="priv_b" value="EKS subnet b (app)" style="points=[];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#00A4A6;fillColor=#E6F6F7;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;dashed=0;grStroke=0;" parent="az_b" vertex="1">
+          <mxGeometry x="20" y="340" width="390" height="370" as="geometry" />
+        </mxCell>
+        <mxCell id="priv_b_t" value="rafael-forestproject-eks-b · &lt;b&gt;10.0.12.0/24&lt;/b&gt;&lt;br&gt;eks-rt-b: 0.0.0.0/0 → NAT b · S3 → gateway endpoint&lt;br&gt;Tag kubernetes.io/role/internal-elb = 1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#232F3E;" parent="priv_b" vertex="1">
+          <mxGeometry x="12" y="36" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="node_b" value="EKS worker node (B)&lt;br&gt;&lt;span style='font-weight:normal'&gt;managed node group rafael-forestproject-nodegroup · t3.medium · AL2023 · private IP only, no SSH&lt;/span&gt;" style="points=[];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_ec2_instance_contents;strokeColor=#D86613;fillColor=#FFFFFF;verticalAlign=top;align=left;spacingLeft=30;fontColor=#D86613;dashed=0;fontSize=11;" parent="priv_b" vertex="1">
+          <mxGeometry x="30" y="120" width="330" height="225" as="geometry" />
+        </mxCell>
+        <mxCell id="pod_b" value="&lt;font color='#C2410C'&gt;&lt;b&gt;PLANNED&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;learningsteps-api&lt;/b&gt;&lt;br&gt;pod · uvicorn :8000&lt;br&gt;ServiceAccount learningsteps-api" style="sketch=0;html=1;dashed=0;whiteSpace=nowrap;fillColor=#2875E2;strokeColor=#ffffff;points=[];shape=mxgraph.kubernetes.icon;prIcon=pod;fontSize=11;fontColor=#232F3E;aspect=fixed;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;opacity=45;" parent="node_b" vertex="1">
+          <mxGeometry x="250" y="60" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="csi_b" value="Secrets Store CSI + AWS provider (EKS add-on, ns aws-secrets-manager)&lt;br&gt;+ eks-pod-identity-agent · mounts the DB secret into the pod" style="sketch=0;html=1;dashed=0;whiteSpace=nowrap;fillColor=#2875E2;strokeColor=#ffffff;points=[];shape=mxgraph.kubernetes.icon;prIcon=secret;fontSize=10;fontColor=#232F3E;aspect=fixed;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" parent="node_b" vertex="1">
+          <mxGeometry x="20" y="150" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="db_b" value="DB subnet b (database)" style="points=[];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#C925D1;fillColor=#F9EEFA;verticalAlign=top;align=left;spacingLeft=30;fontColor=#8C2A96;dashed=0;grStroke=0;" parent="az_b" vertex="1">
+          <mxGeometry x="20" y="780" width="390" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="db_b_t" value="rafael-forestproject-db-b · &lt;b&gt;10.0.25.0/24&lt;/b&gt;&lt;br&gt;db-rt: no internet route (local only)&lt;br&gt;Member of rafael-forestproject-db-subnetgroup" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#232F3E;" parent="db_b" vertex="1">
+          <mxGeometry x="12" y="36" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rds_sb" value="&lt;b&gt;Multi-AZ standby&lt;/b&gt;&lt;br&gt;synchronous copy · automatic failover" style="sketch=0;points=[];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#C925D1;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds;opacity=70;" parent="db_b" vertex="1">
+          <mxGeometry x="80" y="140" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="nlb" value="&lt;font color='#C2410C'&gt;&lt;b&gt;PLANNED&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;Network Load Balancer&lt;/b&gt;&lt;br&gt;from K8s Service type=LoadBalancer&lt;br&gt;listener TCP :80" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.network_load_balancer;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;spacingLeft=6;" parent="vpc" vertex="1">
+          <mxGeometry x="636" y="191" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="rt_pub" value="&lt;b&gt;rafael-forestproject-public-rt&lt;/b&gt;&lt;br&gt;0.0.0.0/0 → IGW&lt;br&gt;assoc: public-a, public-b" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.route_table;" parent="vpc" vertex="1">
+          <mxGeometry x="80" y="270" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="rt_priv" value="&lt;b&gt;eks-rt-a / eks-rt-b&lt;/b&gt;&lt;br&gt;0.0.0.0/0 → NAT in same AZ&lt;br&gt;S3 prefix list → gateway endpoint&lt;br&gt;assoc: eks-a → rt-a, eks-b → rt-b" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.route_table;" parent="vpc" vertex="1">
+          <mxGeometry x="80" y="540" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="rt_db" value="&lt;b&gt;rafael-forestproject-db-rt&lt;/b&gt;&lt;br&gt;10.0.0.0/16 → local only&lt;br&gt;assoc: db-a, db-b" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.route_table;" parent="vpc" vertex="1">
+          <mxGeometry x="80" y="970" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="s3_ep" value="&lt;b&gt;S3 gateway endpoint&lt;/b&gt;&lt;br&gt;rafael-forestproject-s3-endpoint&lt;br&gt;on eks-rt-a/b · free · ECR image layers&lt;br&gt;stay on the AWS network" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.endpoints;" parent="vpc" vertex="1"><mxGeometry x="80" y="760" width="48" height="48" as="geometry" /></mxCell><mxCell id="igw" value="&lt;b&gt;Internet Gateway&lt;/b&gt;&lt;br&gt;rafael-forestproject-igw" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.internet_gateway;verticalLabelPosition=top;verticalAlign=bottom;" parent="region" vertex="1">
+          <mxGeometry x="36" y="241" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="svcs" value="Regional AWS services (outside the VPC)" style="rounded=1;arcSize=2;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#879196;fontColor=#545B64;fontStyle=1;verticalAlign=top;align=center;spacingTop=6;container=1;collapsible=0;" parent="region" vertex="1">
+          <mxGeometry x="1210" y="60" width="370" height="1200" as="geometry" />
+        </mxCell>
+        <mxCell id="eks" value="&lt;b&gt;EKS control plane&lt;/b&gt; rafael-forestproject-eks-cluster · v1.36&lt;br&gt;auth: access entries (API mode)&lt;br&gt;public endpoint: your IP /32 only · private endpoint for nodes&lt;br&gt;add-ons: pod-identity-agent, secrets-store CSI" style="sketch=0;points=[];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eks;" parent="svcs" vertex="1">
+          <mxGeometry x="161" y="60" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="ecr" value="&lt;b&gt;ECR&lt;/b&gt; repo: rafael-forestproject/learningsteps&lt;br&gt;IMMUTABLE tags · scan on push&lt;br&gt;lifecycle: untagged → 1 day · keep last 10" style="sketch=0;points=[];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ecr;" parent="svcs" vertex="1">
+          <mxGeometry x="161" y="250" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="sm" value="&lt;b&gt;Secrets Manager&lt;/b&gt;&lt;br&gt;RDS-managed master password (auto-rotated)&lt;br&gt;Pod Identity: learningsteps/learningsteps-api → app role" style="sketch=0;points=[];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;" parent="svcs" vertex="1">
+          <mxGeometry x="161" y="440" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="iam" value="&lt;b&gt;IAM&lt;/b&gt;&lt;br&gt;cluster role (eks) · node role (ec2) + 3 managed policies&lt;br&gt;app role (pods.eks): GetSecretValue on the DB secret ONLY&lt;br&gt;&lt;font color='#C2410C'&gt;&lt;b&gt;PLANNED&lt;/b&gt;&lt;/font&gt;: GitHub OIDC provider + deploy role" style="sketch=0;points=[];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.identity_and_access_management;" parent="svcs" vertex="1">
+          <mxGeometry x="161" y="630" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="cw" value="&lt;b&gt;CloudWatch Logs&lt;/b&gt;&lt;br&gt;/aws/eks/rafael-forestproject-eks-cluster/cluster&lt;br&gt;api · audit · authenticator · 7-day retention (Terraform-managed)" style="sketch=0;points=[];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch_2;" parent="svcs" vertex="1">
+          <mxGeometry x="161" y="820" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="&lt;b&gt;S3: terraform-project-062163939903&lt;/b&gt;&lt;br&gt;rpdavila/learning-steps/prod/rafael.tfstate&lt;br&gt;encrypted · S3-native lockfile&lt;br&gt;(state bucket lives in eu-central-1)" style="sketch=0;points=[];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#7AA116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" parent="svcs" vertex="1">
+          <mxGeometry x="161" y="1010" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="gh" value="&lt;font color='#C2410C'&gt;&lt;b&gt;PLANNED&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;b&gt;GitHub Actions (CI/CD)&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;App CD:&lt;/b&gt; docker build → Trivy scan → push to ECR → kubectl apply → rollout status&lt;br&gt;&lt;br&gt;&lt;b&gt;Infra pipeline:&lt;/b&gt; Trivy config scan → terraform fmt / validate → plan → apply&lt;br&gt;&lt;br&gt;&lt;b&gt;Auth:&lt;/b&gt; GitHub OIDC → IAM role (no long-lived AWS keys)" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fillColor=#FFFFFF;strokeColor=#24292F;fontSize=11;fontColor=#24292F;dashed=1;dashPattern=8 4;" parent="1" vertex="1">
+          <mxGeometry x="1970" y="200" width="250" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="tf" value="&lt;b&gt;You&lt;/b&gt;&lt;br&gt;Terraform CLI + kubectl&lt;br&gt;(local machine)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3E;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.user;" parent="1" vertex="1">
+          <mxGeometry x="2071" y="1180" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="e_users" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;" parent="1" source="users" target="internet" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_inet" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;startArrow=block;startFill=1;" parent="1" source="internet" target="igw" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_igw_nlb" value="HTTP :80" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;strokeColor=#248814;fontColor=#248814;" parent="1" source="igw" target="nlb" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_nlb_a" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;strokeColor=#248814;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="nlb" target="pod_a" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1020" y="530" />
+              <mxPoint x="904" y="530" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_nlb_b" value="NodePort → pod :8000" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;strokeColor=#248814;fontColor=#248814;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="nlb" target="pod_b" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1020" y="530" />
+              <mxPoint x="1354" y="530" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pod_a_db" value="TCP 5432&lt;br&gt;(db-sg: only from the EKS cluster SG)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;strokeColor=#8C2A96;fontColor=#8C2A96;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="pod_a" target="rds" edge="1">
+          <mxGeometry x="0.45" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pod_b_db" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;strokeColor=#8C2A96;exitX=0.5;exitY=1;entryX=1;entryY=0.5;" parent="1" source="pod_b" target="rds" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1354" y="955" />
+              <mxPoint x="970" y="955" />
+              <mxPoint x="970" y="1154" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_egress" value="egress&lt;br&gt;0.0.0.0/0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;dashed=1;strokeColor=#D86613;fontColor=#D86613;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="rt_priv" target="nat" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="560" y="724" />
+              <mxPoint x="560" y="454" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_nat_igw" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;dashed=1;strokeColor=#D86613;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" parent="1" source="nat" target="igw" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="684" y="415" />
+              <mxPoint x="360" y="415" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_nat_b_igw" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;dashed=1;strokeColor=#D86613;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" parent="1" source="nat_b" target="igw" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1134" y="415" /><mxPoint x="360" y="415" /></Array>
+          </mxGeometry>
+        </mxCell><mxCell id="e_node_svcs" value="HTTPS 443 via NAT:&lt;br&gt;pull image · get secret&lt;br&gt;EKS API · logs" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;dashed=1;strokeColor=#D86613;fontColor=#D86613;exitX=1;exitY=0.5;entryX=0;entryY=0.51;" parent="1" source="node_b" target="svcs" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_gh_eks" value="kubectl apply" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;dashed=1;exitX=0;exitY=0.169;entryX=1;entryY=0.5;" parent="1" source="gh" target="eks" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_gh_ecr" value="docker push (OIDC)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;dashed=1;exitX=0;exitY=0.7625;entryX=1;entryY=0.5;" parent="1" source="gh" target="ecr" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_gh_s3" value="terraform state" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;dashed=1;exitX=0.1;exitY=1;entryX=1;entryY=0.25;" parent="1" source="gh" target="s3" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1995" y="1192" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_tf_s3" value="terraform plan / apply" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#545B64;fontSize=10;fontColor=#232F3E;labelBackgroundColor=#FFFFFF;dashed=1;entryX=1;entryY=0.75;" parent="1" source="tf" target="s3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" value="&lt;b&gt;Legend&lt;/b&gt;&lt;br&gt;Solid border = built (in Terraform today)&lt;br&gt;Dashed border / &lt;font color='#C2410C'&gt;&lt;b&gt;PLANNED&lt;/b&gt;&lt;/font&gt; = not built yet&lt;br&gt;&lt;font color='#248814'&gt;&lt;b&gt;━&lt;/b&gt;&lt;/font&gt; user traffic (HTTP → NLB → pods)&lt;br&gt;&lt;font color='#8C2A96'&gt;&lt;b&gt;━&lt;/b&gt;&lt;/font&gt; database traffic (TCP 5432)&lt;br&gt;&lt;font color='#D86613'&gt;&lt;b&gt;┅&lt;/b&gt;&lt;/font&gt; outbound egress via NAT&lt;br&gt;&lt;b&gt;┅&lt;/b&gt; CI/CD and Terraform" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fillColor=#F8F9FA;strokeColor=#AAB7B8;fontSize=11;fontColor=#232F3E;" parent="1" vertex="1">
+          <mxGeometry x="280" y="1460" width="380" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="sgs" value="&lt;b&gt;Security groups&lt;/b&gt;&lt;br&gt;&lt;b&gt;rafael-forestproject-db-sg&lt;/b&gt; — in: TCP 5432 &lt;b&gt;only from the EKS cluster security group&lt;/b&gt; (SG-to-SG reference; before: EKS subnet CIDRs) · no egress rule&lt;br&gt;&lt;b&gt;EKS cluster SG&lt;/b&gt; — created by EKS: node↔node, control plane ↔ nodes · out via NAT&lt;br&gt;&lt;b&gt;NLB&lt;/b&gt; &lt;font color='#C2410C'&gt;&lt;b&gt;PLANNED&lt;/b&gt;&lt;/font&gt; — in: TCP 80 (443 once TLS is added) from 0.0.0.0/0 · SG created by Kubernetes&lt;br&gt;&lt;b&gt;EKS API&lt;/b&gt; — public endpoint limited to your IP /32 (tested: other networks time out)" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fillColor=#F8F9FA;strokeColor=#AAB7B8;fontSize=11;fontColor=#232F3E;" parent="1" vertex="1">
+          <mxGeometry x="680" y="1460" width="700" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="notes" value="&lt;b&gt;Notes&lt;/b&gt;&lt;br&gt;• Azure → AWS: AKS → EKS, ACR → ECR, Key Vault → Secrets Manager (+ CSI + Pod Identity), Postgres Flexible → RDS PostgreSQL, NSGs → security groups.&lt;br&gt;• HA: NAT per AZ, Multi-AZ RDS, one node per AZ. S3 gateway endpoint cuts NAT data costs for ECR pulls.&lt;br&gt;• Next: build + push the app image to ECR, K8s manifests (ServiceAccount, SecretProviderClass provider: aws), then GitHub Actions with OIDC.&lt;br&gt;• Lab: ~$0.35/hr while applied → terraform destroy after each session." style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fillColor=#F8F9FA;strokeColor=#AAB7B8;fontSize=11;fontColor=#232F3E;" parent="1" vertex="1">
+          <mxGeometry x="1400" y="1460" width="520" height="150" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

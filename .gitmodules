@@ -1,0 +1,4 @@
+[submodule "learningsteps"]
+	path = learningsteps
+	url = https://github.com/CyberstepsDE/learningsteps.git
+	branch = reference

@@ -1,0 +1,11 @@
+.git
+.env
+.env.*
+__pycache__/
+*.pyc
+venv/
+.devcontainer/
+.vscode/
+test_api.py
+README.md
+start.sh

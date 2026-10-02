@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-setup-job
+  namespace: learningsteps
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      serviceAccountName: learningsteps-api
+      restartPolicy: Never
+      containers:
+        - name: psql
+          image: postgres:18
+          command: ["sh", "-c"]
+          args:
+            - >-
+              export PGPASSWORD="$(cat /mnt/secret-store/db-password)" &&
+              psql "host=rafael-forestproject-postgres.c2lwyyccqo71.us-east-1.rds.amazonaws.com port=5432 user=learningsteps dbname=learning_journal sslmode=require"
+              -v ON_ERROR_STOP=1 -f /sql/database_setup.sql
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: db-secret
+              mountPath: /mnt/secret-store
+              readOnly: true
+            - name: psql
+              mountPath: /sql
+              readOnly: true
+      volumes:
+        - name: db-secret
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: learningsteps-api
+        - name: psql
+          configMap:
+            name: db-setup
+

@@ -2,7 +2,7 @@ resource "aws_db_instance" "db" {
   identifier                  = "${var.project_name}-postgres"
   engine                      = "postgres"
   engine_version              = "18.6"
-  instance_class              = "db.t4g.micro"
+  instance_class              = "db.t3.micro"
   allocated_storage           = 20
   storage_encrypted           = true # uses aws kms
   db_subnet_group_name        = aws_db_subnet_group.db.name

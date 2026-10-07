@@ -1,7 +1,7 @@
 variable "aws_region" {
   type        = string
   description = "AWS region to deploy into"
-  default     = "us-east-1" # N Virginia
+  default     = "eu-central-1"
 }
 
 variable "project_name" {
@@ -27,8 +27,8 @@ variable "public_subnet_cidr" {
   type        = map(object({ cidr = string, az = string }))
   description = "public subnet cidr"
   default = {
-    a = { cidr = "10.0.1.0/24", az = "us-east-1a" }
-    b = { cidr = "10.0.2.0/24", az = "us-east-1b" }
+    a = { cidr = "10.0.1.0/24", az = "eu-central-1a" }
+    b = { cidr = "10.0.2.0/24", az = "eu-central-1b" }
   }
 }
 
@@ -36,8 +36,8 @@ variable "eks_subnet_cidr" {
   type        = map(object({ cidr = string, az = string }))
   description = "private subnet for eks"
   default = {
-    a = { cidr = "10.0.11.0/24", az = "us-east-1a" },
-    b = { cidr = "10.0.12.0/24", az = "us-east-1b" }
+    a = { cidr = "10.0.11.0/24", az = "eu-central-1a" },
+    b = { cidr = "10.0.12.0/24", az = "eu-central-1b" }
   }
 }
 
@@ -45,8 +45,8 @@ variable "db_subnet_cidr" {
   type        = map(object({ cidr = string, az = string }))
   description = "private subnet for db"
   default = {
-    a = { cidr = "10.0.24.0/24", az = "us-east-1a" },
-    b = { cidr = "10.0.25.0/24", az = "us-east-1b" }
+    a = { cidr = "10.0.24.0/24", az = "eu-central-1a" },
+    b = { cidr = "10.0.25.0/24", az = "eu-central-1b" }
   }
 }
 

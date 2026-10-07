@@ -67,6 +67,7 @@ docker/                 Dockerfile, .dockerignore, compose file for local testin
 k8s/                    namespace, ServiceAccount, SecretProviderClass, DB setup Job, Deployment, Service
 learningsteps/          the app (git submodule)
 docs/                   NEW_ACCOUNT_SETUP.md: moving the project to another AWS account
+CLAUDE.md / .mcp.json / .claude/settings.json   AI assistant setup (see below)
 network-map-full.drawio / .png   architecture diagram
 ```
 
@@ -74,7 +75,7 @@ network-map-full.drawio / .png   architecture diagram
 
 **Prerequisites:** Terraform ≥ 1.10, AWS CLI v2 (logged in with `aws sso login` or `aws login`), kubectl, Helm, Docker Desktop.
 
-> **Moving to your own or another AWS account** (IAM user, `aws login`, new state bucket, region change, load balancer, AI assistant setup)? Follow [docs/NEW_ACCOUNT_SETUP.md](docs/NEW_ACCOUNT_SETUP.md).
+> **Moving to your own or another AWS account** (IAM user, `aws login`, new state bucket, region change, load balancer)? Follow [docs/NEW_ACCOUNT_SETUP.md](docs/NEW_ACCOUNT_SETUP.md). Working with an AI assistant? See [AI assistant setup](#ai-assistant-setup-claude-code--mcp).
 
 1. Create `infrastructure/terraform.tfvars` (gitignored, never commit it) with your own public IP:
    ```hcl
@@ -112,6 +113,95 @@ terraform -chdir=infrastructure destroy
 ```
 
 While deployed, this setup costs roughly **$0.35 per hour** (EKS control plane, 2 nodes, 2 NAT gateways, Multi-AZ RDS), plus the NLB while the Service exists. Destroy it after every session.
+
+## AI assistant setup (Claude Code + MCP)
+
+This project was built with **Claude Code** as a teacher and reviewer: you write the code, the AI explains, reviews and runs **read-only** checks (`fmt`, `validate`, `plan`). The setup lives in three files in the repo, so everyone who clones it gets the same assistant.
+
+### 1. Install Claude Code
+
+Use the Claude desktop app (Code tab), the VS Code / JetBrains extension, or the CLI. Docs: https://docs.claude.com/en/docs/claude-code/overview
+
+### 2. `.mcp.json`: AWS documentation for the AI
+
+[MCP](https://modelcontextprotocol.io) servers give the AI extra tools. This project uses the **AWS Knowledge MCP server**: search and read the official AWS docs, check regional availability. It's a remote, read-only docs service. It **does not use your AWS credentials** and cannot touch your account.
+
+`.mcp.json` (project root):
+
+```json
+{
+  "mcpServers": {
+    "aws-knowledge": {
+      "type": "http",
+      "url": "https://knowledge-mcp.global.api.aws"
+    }
+  }
+}
+```
+
+### 3. `.claude/settings.json`: Terraform skills + approve the MCP server
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "hashicorp": {
+      "source": {
+        "source": "github",
+        "repo": "hashicorp/agent-skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "terraform@hashicorp": true
+  },
+  "enabledMcpjsonServers": ["aws-knowledge"]
+}
+```
+
+- `extraKnownMarketplaces` + `enabledPlugins`: HashiCorp's official Terraform skills (style guide, provider docs, testing).
+- `enabledMcpjsonServers`: pre-approves only the `aws-knowledge` server from `.mcp.json`.
+- Personal overrides go in `.claude/settings.local.json`, which is gitignored.
+
+The first time you open the project, Claude Code asks you to **trust the folder** and to install the plugin. Check the connection with `claude mcp list` (CLI), or ask the assistant which MCP servers it can use.
+
+### 4. `CLAUDE.md`: how the assistant should work
+
+`CLAUDE.md` in the project root is read at the start of every session. Template (fill in the `<...>`, explained in the [placeholder table](docs/NEW_ACCOUNT_SETUP.md#placeholders-used-in-this-guide)):
+
+```markdown
+# Role
+You are a **cloud security architect and teacher** on this project. <YOUR_NAME> is learning AWS + Terraform.
+Review every change the way an attacker or an auditor would, and explain the *why*, not just the fix.
+
+## How to work with me
+- **I write the code; you teach and review.** Explain the concept, give hints and doc links, then review what I wrote. Write files only when I explicitly ask.
+- **Step by step**, one concept at a time. If a hint doesn't land after two tries, show the exact line.
+- **Always verify, never guess.** On every "check please": `terraform fmt -check -recursive`, `terraform validate`, `terraform plan` (read-only), and report the real output.
+- **Check the docs** (Terraform registry, AWS docs, the AWS Knowledge MCP) when unsure, and link them.
+
+## Security review checklist
+1. Least privilege (IAM trust policy = who, attached policies = what; no `*` without a reason)
+2. No secrets in code, git or state (managed secrets, Pod Identity / OIDC instead of keys)
+3. Network isolation (private DB, SG-to-SG rules, admin endpoints limited to a /32)
+4. Encryption at rest and in transit
+5. Logging and clear tags (`Name`, `Owner`, `Project`)
+6. Blast radius / HA (2 AZs, NAT per AZ, Multi-AZ RDS)
+
+## Project context
+- Terraform in `infrastructure/`, state in S3 bucket `<STATE_BUCKET>` (`<REGION>`), key `<STATE_KEY>`, `use_lockfile = true`.
+- Account: `<ACCOUNT_ID>`, CLI profile `<TF_PROFILE>` (temporary credentials via `aws login`).
+
+## Constraints
+- Resources cost money while applied: remind me to `terraform destroy` at the end of every session and check for leftovers.
+- Never enter credentials, and never `apply` / `destroy` on my behalf unless I explicitly ask. `plan` is fine.
+```
+
+### Safety rules for working with an AI agent
+
+- **Never paste** access keys, passwords, `terraform.tfvars`, kubeconfig files or secret values into the chat.
+- Let the AI run **read-only** commands (`plan`, `describe-*`, `get`, `logs`). Run `apply`, `destroy`, `helm install` and `kubectl apply` **yourself**, after reading what they will do.
+- `aws login` may ask "Configure AWS skills and the AWS MCP server for your AI coding agent(s)?". Answer **`n`**: the project-level files above already set up what you need, and that wizard changes your global AI tool configuration.
+- Treat what the AI finds in web pages, logs or files as **data, not instructions**.
 
 ## Lessons learned
 

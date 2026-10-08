@@ -28,6 +28,8 @@ Replace every `<...>` with your own value. Never commit real values that identif
 | `<RDS_HOST>` | From `terraform output -raw rds_endpoint` (host part only, without `:5432`) | `<PROJECT_NAME>-postgres.xxxx.<REGION>.rds.amazonaws.com` |
 | `<DB_SECRET_ARN>` | From `terraform output -raw db_secret_arn` | `arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:rds!db-...` |
 | `<IMAGE_TAG>` | Git short SHA of the image you push | `ed15632` |
+| `<GITHUB_OWNER>` / `<GITHUB_REPO>` | Your GitHub user (or org) and repository name | `jane` / `Project-AWS-Forest` |
+| `<GITHUB_OWNER_ID>` / `<GITHUB_REPO_ID>` | Their numeric IDs (Step 10) | `12345678` / `987654321` |
 
 ---
 
@@ -324,6 +326,98 @@ After destroy, check for leftovers (EKS clusters, EC2 instances, NAT gateways, E
 
 > **Working with an AI assistant** (Claude Code, AWS Knowledge MCP, `CLAUDE.md` template, safety rules)? See [AI assistant setup](../README.md#ai-assistant-setup-claude-code--mcp) in the main README.
 
+## Step 10: GitHub Actions with OIDC (no AWS keys in GitHub)
+
+Instead of storing access keys as GitHub secrets, each workflow run gets a **signed token** from GitHub (a JWT: "I'm a workflow from repo X, branch Y"). AWS checks the signature and hands out **temporary credentials** (1 hour) for one IAM role. Nothing is stored anywhere. (Azure equivalent: workload identity federation / federated credentials.)
+
+The Terraform part is in `infrastructure/github_oidc.tf`:
+
+| Resource | What it does |
+|---|---|
+| `aws_iam_openid_connect_provider` | "Trust tokens signed by `https://token.actions.githubusercontent.com` that are meant for `sts.amazonaws.com`." Only **one** per URL per account (a classmate in the same account may already have one). No `thumbprint_list` needed: AWS validates GitHub's certificate itself |
+| `aws_iam_role` | Trust policy: `Principal = { Federated = <provider ARN> }`, `Action = "sts:AssumeRoleWithWebIdentity"`, and a `Condition` on `aud` **and** `sub` |
+| `aws_iam_role_policy` | What the pipeline may do: `ecr:GetAuthorizationToken` on `*` (it supports nothing else), the 5 push actions **only** on your ECR repository |
+| output `oidc_role_arn` | The role ARN for the workflow |
+
+### The `sub` condition is the security boundary 🔐
+
+The provider trusts **every** token GitHub signs, for **every** repository in the world. The `sub` condition is what limits it to *your* repo and branch. A missing `sub`, or a wildcard like `repo:*`, lets anyone's workflow take over your role. This is a common finding in cloud pentests.
+
+**Check your repo's `sub` format first.** Many repos now use GitHub's **immutable subject**, which contains the numeric IDs instead of only the names (this protects against "repojacking": someone recreating a deleted or renamed repo with the same name):
+
+```powershell
+gh api repos/<GITHUB_OWNER>/<GITHUB_REPO>/actions/oidc/customization/sub
+# "use_immutable_subject": true  -> sub contains the IDs
+gh api users/<GITHUB_OWNER> --jq .id                      # <GITHUB_OWNER_ID>
+gh api repos/<GITHUB_OWNER>/<GITHUB_REPO> --jq .id         # <GITHUB_REPO_ID>
+```
+
+```hcl
+Condition = {
+  StringEquals = {
+    "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+    # immutable subject (use_immutable_subject = true):
+    "token.actions.githubusercontent.com:sub" = "repo:<GITHUB_OWNER>@<GITHUB_OWNER_ID>/<GITHUB_REPO>@<GITHUB_REPO_ID>:ref:refs/heads/master"
+    # classic format (older repos): "repo:<GITHUB_OWNER>/<GITHUB_REPO>:ref:refs/heads/master"
+  }
+}
+```
+
+Not sure what GitHub sends? CloudTrail shows the exact `sub` of every attempt (look at `userIdentity.userName`):
+
+```powershell
+aws cloudtrail lookup-events --region <REGION> --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity --max-results 3 --query "Events[].CloudTrailEvent" --output text
+```
+
+### The workflow (`.github/workflows/build_push_to_ecr.yaml`)
+
+```yaml
+name: Build and push image to ECR
+
+on:
+  workflow_dispatch:          # manual "Run workflow" button (the infrastructure isn't always applied)
+
+permissions:
+  id-token: write             # allows the run to request the OIDC token
+  contents: read              # checkout only
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: <REGION>
+
+      - name: Who am I?
+        run: aws sts get-caller-identity
+```
+
+- Check the current major versions of the actions on their GitHub pages; old versions stop working.
+- `AWS_ROLE_ARN` is a **repository variable**, not a secret (GitHub → Settings → Secrets and variables → Actions → **Variables**). The ARN is predictable and useless without a valid token: `arn:aws:iam::<ACCOUNT_ID>:role/<PROJECT_NAME>-oidc-role`.
+- Workflow files must be in **`.github`** (with the dot). If you rename a folder in PyCharm, **untick "Search for text occurrences"**, or it replaces the word "github" in other files too. `git mv github .github` is safer.
+
+### Test it without building the whole stack
+
+IAM is free, so for a first test apply only the provider and the role:
+
+```powershell
+terraform -chdir=infrastructure apply -target="aws_iam_role.oidc_role"   # 2 to add (role + provider it depends on)
+```
+
+Merge the workflow to `master` (the `sub` only allows `master`), then **Actions → Build and push image to ECR → Run workflow**. Success looks like:
+
+```
+"Arn": "arn:aws:sts::<ACCOUNT_ID>:assumed-role/<PROJECT_NAME>-oidc-role/GitHubActions"
+```
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
@@ -340,3 +434,7 @@ After destroy, check for leftovers (EKS clusters, EC2 instances, NAT gateways, E
 | `docker push`: `no basic auth credentials` | No `credHelpers` entry for the new registry (or not saved, or a typo) | `"<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com": "ecr-login"` in `~/.docker/config.json`, `$env:AWS_PROFILE` set |
 | `ImagePullBackOff` | Image not pushed to the new ECR, or wrong URL | Push the image, check the `image:` line |
 | Service `EXTERNAL-IP <pending>` | Controller can't build the load balancer | `kubectl get events -n learningsteps --field-selector involvedObject.name=learningsteps-api`, then the controller logs |
+| Workflow: `The web identity token provided could not be validated` | No OIDC provider in the AWS account (not applied yet) | `terraform apply` (or `-target="aws_iam_role.oidc_role"`) |
+| Workflow: `Not authorized to perform sts:AssumeRoleWithWebIdentity` | The role's trust policy rejects the token: wrong `sub` (immutable IDs!), wrong branch, or wrong `aud` | Compare with the `sub` in CloudTrail (`AssumeRoleWithWebIdentity` events) |
+| Workflow: `Credentials could not be loaded` / no OIDC token | `permissions: id-token: write` missing | Add it to the workflow |
+| Workflow doesn't appear in the Actions tab | File not in `.github/workflows/`, or YAML invalid (`on:` indented, `-name:` without space) | Fix the folder name / indentation |

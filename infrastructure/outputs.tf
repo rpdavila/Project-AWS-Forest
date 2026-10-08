@@ -9,18 +9,18 @@ output "vpc_cidr_block" {
 }
 
 output "aws_public_subnet_ids" {
-  description = "ID of the public subnets"
-  value       = [for s in aws_subnet.public_subnet : s.id]
+  description = "cidr of the public subnets"
+  value       = [for s in aws_subnet.public_subnet : s.cidr_block]
 }
 
 output "aws_eks_subnet" {
-  description = "ID of the eks subnets"
-  value       = [for s in aws_subnet.eks_subnet : s.id]
+  description = "cidr of the eks subnets"
+  value       = [for s in aws_subnet.eks_subnet : s.cidr_block]
 }
 
-output "aws_db_subnet" {
-  description = "ID for the db subnets"
-  value       = [for s in aws_subnet.db_subnet : s.id]
+output "aws_db_subnet_ip" {
+  description = "cidr for the db subnets"
+  value       = [for s in aws_subnet.db_subnet : s.cidr_block]
 }
 
 output "eks_cluster_name" {
@@ -47,4 +47,6 @@ output "app_role_arn" {
   value = aws_iam_role.app.arn
 }
 
-
+output "oidc_role_arn" {
+  value = aws_iam_role.oidc_role.arn
+}

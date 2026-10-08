@@ -190,12 +190,19 @@ terraform -chdir=infrastructure plan        # read the summary: every resource "
 terraform -chdir=infrastructure apply       # ~25-30 min
 ```
 
-Connect kubectl to the new cluster:
+Connect kubectl to the new cluster. Set `$env:AWS_PROFILE = "<TF_PROFILE>"` **first**: `update-kubeconfig` writes the profile into the new kubeconfig entry, so kubectl later gets its tokens from the right account.
 
 ```powershell
 terraform -chdir=infrastructure output -raw kubeconfig_cmd    # prints the command, then run it
-kubectl config current-context                                # must end with <CLUSTER_NAME>
-kubectl get nodes -o wide
+kubectl config current-context                                # must be arn:aws:eks:<REGION>:<ACCOUNT_ID>:cluster/<CLUSTER_NAME>
+kubectl get nodes -o wide                                     # 2 nodes Ready, no EXTERNAL-IP
+```
+
+kubectl keeps using the **old** cluster until you run the `update-kubeconfig` command (you'll see `no such host` with the old region in the URL). Remove contexts of clusters that no longer exist, so you can't apply to them by mistake:
+
+```powershell
+kubectl config get-contexts -o name
+kubectl config delete-context <OLD_CONTEXT_NAME>
 ```
 
 ## Step 7: everything else that contains the account ID or region
@@ -211,16 +218,72 @@ Terraform values update themselves. These files **don't**, so update them after 
 | `k8s/secretproviderclass.yaml` → `region` | `<REGION>` |
 | `k8s/secretproviderclass.yaml` → `objectName` | `<DB_SECRET_ARN>` (changes with **every** new RDS instance) |
 
-Then build and push the image (ECR is empty in a new account):
+### Docker login to the new ECR (credential helper, no stored password)
+
+Docker decides **per registry name** how to log in. The `credHelpers` entry tells it to use `docker-credential-ecr-login` (ships with Docker Desktop) for your ECR registry. The helper inherits `$env:AWS_PROFILE` from your console and gets a fresh token from AWS on every push. Nothing is stored.
 
 ```powershell
+notepad $HOME\.docker\config.json
+```
+
+```json
+{
+  "credHelpers": {
+    "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com": "ecr-login"
+  }
+}
+```
+
+(Keep the other settings in the file, such as `credsStore`. Only change or add this entry, and **save** with Ctrl+S.)
+
+- The key must match the registry **exactly**: same account ID, same region, no `https://`, no repository path.
+- Delete the entry for an old account you no longer use.
+- If the key doesn't match, Docker silently falls back to `credsStore: desktop`, which has no login for ECR → `no basic auth credentials`.
+
+Check what Docker actually reads (prints no secrets):
+
+```powershell
+(Get-Content $HOME\.docker\config.json -Raw | ConvertFrom-Json).credHelpers
+```
+
+### Build and push the image (ECR is empty in a new account)
+
+```powershell
+$env:AWS_PROFILE = "<TF_PROFILE>"
 $REPO = terraform -chdir=infrastructure output -raw ecr_repository_url
 docker build --platform linux/amd64 --provenance=false -f docker/Dockerfile -t learningsteps:local learningsteps
 docker tag learningsteps:local "${REPO}:<IMAGE_TAG>"
 docker push "${REPO}:<IMAGE_TAG>"
 ```
 
-And apply the manifests (namespace, ServiceAccount, SecretProviderClass, ConfigMap, Job, Deployment) as described in the main README.
+- Layers stuck at `Waiting` and then `no basic auth credentials` = the login failed (see above), not a network problem.
+- If the app and the Dockerfile haven't changed, you can reuse the previous `<IMAGE_TAG>`: tags are immutable **per repository**, and the repository in a new account is empty.
+- `--platform linux/amd64 --provenance=false` pushes a plain image instead of an index + attestation, so ECR's basic scan works.
+
+Check the push and the scan:
+
+```powershell
+aws ecr describe-images --repository-name <PROJECT_NAME>/learningsteps --query "imageDetails[].[imageTags[0],imageScanStatus.status]" --output table
+```
+
+### Apply the manifests (in this order, from the project root)
+
+```powershell
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/serviceaccount.yaml
+kubectl apply -f k8s/secretproviderclass.yaml
+kubectl create configmap db-setup --from-file=learningsteps/database_setup.sql -n learningsteps
+kubectl apply -f k8s/db-setup-job.yaml
+kubectl get job db-setup-job -n learningsteps          # wait for COMPLETIONS 1/1
+kubectl apply -f k8s/deployment.yaml
+kubectl get pods -n learningsteps                      # 2 pods 1/1 Running
+```
+
+Test without a load balancer:
+
+```powershell
+kubectl port-forward deploy/learningsteps-api 18000:8000 -n learningsteps   # then open http://localhost:18000/docs
+```
 
 ## Step 8: AWS Load Balancer Controller + public Service
 
@@ -274,5 +337,6 @@ After destroy, check for leftovers (EKS clusters, EC2 instances, NAT gateways, E
 | kubectl `i/o timeout` | Your public IP changed | Update `my_ip_cidr` in `terraform.tfvars`, then `apply` |
 | kubectl `no such host` | Old kubeconfig context (cluster was recreated) | Run the `kubeconfig_cmd` output again |
 | Pods `FailedMount`: failed to fetch secret | Old secret ARN or region in the SecretProviderClass | New `db_secret_arn` output + `<REGION>` |
+| `docker push`: `no basic auth credentials` | No `credHelpers` entry for the new registry (or not saved, or a typo) | `"<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com": "ecr-login"` in `~/.docker/config.json`, `$env:AWS_PROFILE` set |
 | `ImagePullBackOff` | Image not pushed to the new ECR, or wrong URL | Push the image, check the `image:` line |
 | Service `EXTERNAL-IP <pending>` | Controller can't build the load balancer | `kubectl get events -n learningsteps --field-selector involvedObject.name=learningsteps-api`, then the controller logs |

@@ -19,7 +19,7 @@ resource "aws_iam_role" "oidc_role" {
       Condition = {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          "token.actions.githubusercontent.com:sub" = "repo:rpdavila/Project-AWS-Forest:ref:refs/heads/master"
+          "token.actions.githubusercontent.com:sub" = "repo:rpdavila@69975216/Project-AWS-Forest@1399682119:ref:refs/heads/master"
         }
       }
     }]

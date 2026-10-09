@@ -30,6 +30,7 @@ Replace every `<...>` with your own value. Never commit real values that identif
 | `<IMAGE_TAG>` | Git short SHA of the image you push | `ed15632` |
 | `<GITHUB_OWNER>` / `<GITHUB_REPO>` | Your GitHub user (or org) and repository name | `jane` / `Project-AWS-Forest` |
 | `<GITHUB_OWNER_ID>` / `<GITHUB_REPO_ID>` | Their numeric IDs (Step 10) | `12345678` / `987654321` |
+| `<COMMIT_SHA>` / `<VERSION>` | Commit SHA and release tag of a pinned third-party action (Step 11) | `a1b2c3...` (40 chars) / `v0.36.0` |
 
 ---
 
@@ -418,6 +419,87 @@ Merge the workflow to `master` (the `sub` only allows `master`), then **Actions 
 "Arn": "arn:aws:sts::<ACCOUNT_ID>:assumed-role/<PROJECT_NAME>-oidc-role/GitHubActions"
 ```
 
+## Step 11: build, scan and push the image in the pipeline
+
+Once the OIDC login works, extend the same workflow: **ECR login → build → scan → push**. The scan sits **before** the push, so a vulnerable image never reaches the registry ("shift left").
+
+Add a second repository variable (Settings → Secrets and variables → Actions → **Variables**): `ECR_REPOSITORY` = `<PROJECT_NAME>/learningsteps`.
+
+The job gets an `env:` block, and 4 steps are added after "Who am I?":
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+    steps:
+      # ... Checkout, Configure AWS credentials (OIDC), Who am I? (as in Step 10) ...
+
+      - name: Log in to Amazon ECR
+        id: ecr-login                          # later steps read its output by this id
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build image
+        run: |
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/$ECR_REPOSITORY:${GITHUB_SHA::7}"
+          docker build --platform linux/amd64 --provenance=false -f docker/Dockerfile -t "$IMAGE" learningsteps
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@<COMMIT_SHA> # v<VERSION>
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Push image to ECR
+        run: docker push "$IMAGE"
+```
+
+| Concept | Why |
+|---|---|
+| `id: ecr-login` + `steps.ecr-login.outputs.registry` | The login step outputs the registry address (`<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com`). Without the `id`, the expression is **empty** and the tag becomes invalid |
+| `${GITHUB_SHA::7}` | The short commit SHA as the tag: every image is traceable to exactly one commit (ECR tags are immutable) |
+| `>> "$GITHUB_ENV"` | Each step runs in its own shell. Writing `IMAGE=...` to `$GITHUB_ENV` makes it available to the following steps (`$IMAGE`, `${{ env.IMAGE }}`) |
+| `run: \|` | A multi-line script; its lines are indented 2 spaces more than `run:` |
+| `exit-code: "1"` | Trivy fails the step when it finds something; GitHub then **skips the push**. That's the security gate |
+| `severity: CRITICAL` + `ignore-unfixed: true` | Start strict but realistic: block fixable critical findings, tighten to `HIGH` later |
+
+### Pin third-party actions to a commit SHA 🔐
+
+`@v2` points to a **tag**, and tags can be moved by whoever controls the action's repository. In March 2025 attackers did exactly that with `tj-actions/changed-files` and leaked secrets from thousands of pipelines. Pin **third-party** actions to an immutable commit SHA, with the version as a comment (official `actions/*` and `aws-actions/*` on a major tag are common practice). To find the commit of a release tag:
+
+```powershell
+gh api repos/aquasecurity/trivy-action/releases/latest --jq .tag_name
+gh api repos/aquasecurity/trivy-action/git/ref/tags/<VERSION> --jq ".object.sha + ' ' + .object.type"
+# if the type is "tag" (annotated), resolve it to the commit:
+gh api repos/aquasecurity/trivy-action/git/tags/<TAG_OBJECT_SHA> --jq .object.sha
+```
+
+Input names must match the action's `action.yaml` **exactly** (`image-ref`, not `image`). An unknown input is only a warning, and the scan would run without a target.
+
+### Test it (still without EKS)
+
+The pipeline needs the OIDC role, its push policy and the ECR repository:
+
+```powershell
+terraform -chdir=infrastructure apply -target="aws_iam_role_policy.oidc_role_policy" -target="aws_ecr_lifecycle_policy.app"
+# 5 to add: OIDC provider, role, role policy, ECR repository, lifecycle policy
+```
+
+Run the workflow on `master` and check the result from your PC:
+
+```powershell
+aws ecr describe-images --repository-name <PROJECT_NAME>/learningsteps --query "imageDetails[].[imageTags[0],imagePushedAt]" --output table
+aws ecr describe-image-scan-findings --repository-name <PROJECT_NAME>/learningsteps --image-id imageTag=<IMAGE_TAG> --query "imageScanFindings.findingSeverityCounts"
+```
+
+- Trivy and ECR's own scan may disagree (different vulnerability databases). Two layers are a strength, not a contradiction.
+- Without pinned versions in `requirements.txt`, every build installs the newest packages, so the same commit can produce a different image. Pin dependencies for reproducible builds.
+- Clean up with `terraform -chdir=infrastructure destroy` (`force_delete` on the repository also removes the images).
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
@@ -438,3 +520,9 @@ Merge the workflow to `master` (the `sub` only allows `master`), then **Actions 
 | Workflow: `Not authorized to perform sts:AssumeRoleWithWebIdentity` | The role's trust policy rejects the token: wrong `sub` (immutable IDs!), wrong branch, or wrong `aud` | Compare with the `sub` in CloudTrail (`AssumeRoleWithWebIdentity` events) |
 | Workflow: `Credentials could not be loaded` / no OIDC token | `permissions: id-token: write` missing | Add it to the workflow |
 | Workflow doesn't appear in the Actions tab | File not in `.github/workflows/`, or YAML invalid (`on:` indented, `-name:` without space) | Fix the folder name / indentation |
+| Image tag starts with `/` (`invalid reference format`) | `steps.ecr-login.outputs.registry` is empty: the ECR login step has no `id: ecr-login` | Add the `id`, keep it identical in both places |
+| `"docker build" requires exactly 1 argument` | An extra word in the command (e.g. the old local tag `learningsteps:local` left next to `-t "$IMAGE"`) | One `-t`, one build context |
+| Trivy: `Unexpected input(s) 'image'` | Wrong input name | `image-ref` (check the action's `action.yaml`) |
+| Scan or push can't find the image (`$IMAGE` empty) | `echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"` missing in the build step | Add it |
+| Push: `ImageTagAlreadyExistsException` / `tag invalid` | Re-running the same commit: the SHA tag already exists and ECR tags are immutable | Push a new commit, or delete the old image first |
+| Push: `denied` / `not authorized to perform ecr:...` | Role policy missing, or pushing to a different repository than the one in the policy | Apply the role policy; check `ECR_REPOSITORY` |

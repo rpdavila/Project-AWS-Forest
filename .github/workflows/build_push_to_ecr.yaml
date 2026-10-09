@@ -10,6 +10,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -24,3 +26,24 @@ jobs:
 
       - name: Who am I?
         run: aws sts get-caller-identity
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build image
+        run: |
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/$ECR_REPOSITORY:${GITHUB_SHA::7}"
+          docker build --platform linux/amd64 --provenance=false -f docker/Dockerfile -t "$IMAGE" learningsteps
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+
+      - name: Push image to ECR
+        run: docker push "$IMAGE"

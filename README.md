@@ -2,7 +2,9 @@
 
 A production-style AWS rebuild of my Azure **Learning Steps** project, written in Terraform.
 The Azure version runs a FastAPI app on AKS with ACR, PostgreSQL Flexible Server, Key Vault and NSGs.
-This repo moves the same design to AWS: **EKS, ECR, RDS PostgreSQL, Secrets Manager, security groups and the AWS Load Balancer Controller**, built across two Availability Zones with a security-first mindset.
+This repo moves the same design to AWS: **EKS, ECR, RDS PostgreSQL, Secrets Manager, security groups, the AWS Load Balancer Controller and a GitHub Actions pipeline with OIDC**, built across two Availability Zones with a security-first mindset.
+
+> **Status: complete.** The full stack (50 resources) is built with Terraform, tested end to end and destroyed after every session. The public Network Load Balancer went live on 2026-10-21 (both pod targets healthy, `/docs` reachable from the internet), and the CI pipeline builds, scans and pushes the image without any stored AWS keys.
 
 ![AWS network map](network-map-full.png)
 
@@ -15,11 +17,12 @@ This repo moves the same design to AWS: **EKS, ECR, RDS PostgreSQL, Secrets Mana
 | **Network** | VPC `10.0.0.0/16` in `eu-central-1` (Frankfurt), 2 AZs. Per AZ: a public subnet (load balancer, NAT), a private EKS subnet and an isolated DB subnet |
 | **Egress** | One NAT gateway per AZ, each EKS route table points to the NAT in its own AZ. S3 gateway endpoint for ECR image layers |
 | **Kubernetes** | EKS 1.36, managed node group (2 × t3.medium, AL2023) in private subnets, no public IPs, no SSH |
-| **Load balancing** | AWS Load Balancer Controller v3.5.0 (Helm), IAM role via EKS Pod Identity. A `type: LoadBalancer` Service becomes an internet-facing **NLB** in the public subnets that sends traffic straight to pod IPs |
+| **Load balancing** | AWS Load Balancer Controller v3.5.0 (Helm), IAM role via EKS Pod Identity. A `type: LoadBalancer` Service becomes an internet-facing **NLB** in the public subnets that sends traffic straight to pod IPs (live and tested since 2026-10-21) |
 | **Database** | RDS PostgreSQL 18.6, Multi-AZ, encrypted, not publicly accessible, isolated route table with no internet route |
 | **Registry** | ECR with immutable tags, scan on push and a lifecycle policy |
 | **Secrets** | RDS-managed master password in Secrets Manager (auto-rotated), read by pods through the Secrets Store CSI driver + AWS provider and EKS Pod Identity |
 | **App** | FastAPI container (non-root, all capabilities dropped), 2 replicas, DB setup Job, TLS to RDS (`sslmode=require`) |
+| **CI/CD** | GitHub Actions: OIDC login → build (commit-SHA tag) → Trivy scan gate (CRITICAL) → push to ECR. The role trusts only this repo's `master` branch and can only push to one repository |
 | **Logging** | EKS control plane logs (`api`, `audit`, `authenticator`) to a Terraform-managed CloudWatch log group, 7-day retention |
 | **State** | S3 backend (own bucket: versioning, encryption, Block Public Access), S3-native state locking |
 
@@ -36,6 +39,7 @@ This repo moves the same design to AWS: **EKS, ECR, RDS PostgreSQL, Secrets Mana
 | `authorized_ip_ranges` | EKS `public_access_cidrs` |
 | Azure Load Balancer (managed by AKS) | AWS Load Balancer Controller + Network Load Balancer |
 | Storage account backend | S3 backend with `use_lockfile` |
+| GitHub Actions with a service principal / federated credential | GitHub Actions with an IAM OIDC provider + role (no stored keys) |
 
 ## Security decisions
 
@@ -46,6 +50,8 @@ This repo moves the same design to AWS: **EKS, ECR, RDS PostgreSQL, Secrets Mana
 - **Locked-down admin access.** The EKS API's public endpoint only accepts one `/32` (tested: other networks time out). Nodes use the private endpoint.
 - **No shadow resources.** The EKS log group is created by Terraform (with retention), so `terraform destroy` removes everything.
 - **Temporary credentials everywhere.** Humans log in with IAM Identity Center (`aws sso login`) or `aws login` (IAM user + MFA), services and pods get short-lived STS credentials. No long-lived access keys.
+- **A pipeline with nothing to steal.** GitHub Actions gets a short-lived role session through OIDC. The trust policy checks `aud` and the **immutable** `sub` (owner ID + repo ID + `master`), so a renamed or re-created repo with the same name can't use the role. The role can only push to one ECR repository (`ecr:GetAuthorizationToken` is the only `*`, because that action has no resource).
+- **Scan before push.** Trivy (pinned to a commit SHA, because tags can be moved) fails the job on fixable CRITICAL findings, so a bad image never reaches the registry. ECR's own scan on push is a second, independent scanner.
 
 ## Repository layout
 
@@ -62,7 +68,9 @@ infrastructure/
 ├── iam.tf              cluster, node and app roles
 ├── eks.tf              log group, cluster, node group, add-ons, app Pod Identity association
 ├── lbcontroller.tf     AWS Load Balancer Controller: IAM policy, role, Pod Identity association
+├── github_oidc.tf      GitHub OIDC provider, pipeline role (immutable sub), ECR push-only policy
 └── policies/           official IAM policy JSON for the controller (v3.5.0)
+.github/workflows/      build_push_to_ecr.yaml: OIDC login → build → Trivy gate → push
 docker/                 Dockerfile, .dockerignore, compose file for local testing
 k8s/                    namespace, ServiceAccount, SecretProviderClass, DB setup Job, Deployment, Service
 learningsteps/          the app (git submodule)
@@ -101,6 +109,23 @@ network-map-full.drawio / .png   architecture diagram
    kubectl apply -f k8s/service.yaml
    kubectl get svc -n learningsteps learningsteps-api -w    # wait for EXTERNAL-IP
    ```
+6. Test it (the NLB needs about 3 minutes to become `active`):
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}" http://<EXTERNAL-IP>/docs    # 200
+   ```
+   In a browser, type `http://` explicitly: browsers try HTTPS first, and the listener only serves HTTP on port 80 (TLS is a next step).
+
+### CI pipeline (GitHub Actions)
+
+1. Apply the pipeline resources. The full stack includes them; for a cheap test, apply only these (5 resources, no EKS/RDS/NAT):
+   ```bash
+   terraform -chdir=infrastructure apply -target="aws_iam_role_policy.oidc_role_policy" -target="aws_ecr_lifecycle_policy.app"
+   terraform -chdir=infrastructure output -raw oidc_role_arn
+   ```
+2. In GitHub → Settings → Secrets and variables → Actions → **Variables**, add `AWS_ROLE_ARN` (the output above) and `ECR_REPOSITORY` (`<PROJECT_NAME>/learningsteps`). A role ARN isn't a secret: without a matching GitHub token it's useless.
+3. Actions → **Build and push image to ECR** → Run workflow (on `master`).
+
+If you fork the repo, change the `sub` in `github_oidc.tf` to your own repo. Details and troubleshooting: [docs/NEW_ACCOUNT_SETUP.md](docs/NEW_ACCOUNT_SETUP.md) Steps 10–11.
 
 ## Destroy
 
@@ -211,14 +236,22 @@ Review every change the way an attacker or an auditor would, and explain the *wh
 - Read the error type: `AccessDenied` = IAM. `OperationNotPermitted` ("this account does not support creating load balancers") = an account-level block that no IAM change fixes. That one moved this project to a new account.
 - Resources that Kubernetes creates in AWS are invisible to Terraform: clean them up through Kubernetes before `terraform destroy`.
 - In a shared account: unique names, an `Owner` tag on everything, and always verify leftovers after `destroy`. With two accounts on one PC: `aws sts get-caller-identity` before every change.
+- **Separate what you control from what you don't.** The load balancer was blocked by AWS for two weeks. Because the setup had been proven up to the AWS API call (policy simulator, CloudTrail, a direct CLI test in a second region), it worked with zero changes once AWS lifted the block.
+- OIDC errors tell you which layer failed: *could not be validated* = the provider, *not authorized to perform sts:AssumeRoleWithWebIdentity* = the role's trust policy. CloudTrail shows the exact `sub` GitHub sent.
+- Shell state is per shell: `AWS_PROFILE` and variables like `$REPO` exist only in the terminal where you set them (an empty `$REPO` gives `invalid reference format`).
+- A `/32` admin rule plus a dynamic home IP can lock you out of the EKS API. Update `terraform.tfvars` and apply (one in-place change).
 
 ## Next steps
 
 - [x] Build and push the app image to ECR
 - [x] Kubernetes manifests for AWS (ServiceAccount, `SecretProviderClass` with `provider: aws`, DB setup Job, Deployment, Service)
 - [x] AWS Load Balancer Controller (Terraform IAM + Pod Identity, Helm install)
-- [ ] Public NLB tested end to end in the new account
-- [ ] GitHub Actions with OIDC (no stored AWS keys)
-- [ ] Template the secret ARN, RDS endpoint and image tag from Terraform outputs
+- [x] Public NLB tested end to end in the new account (2026-10-21)
+- [x] GitHub Actions with OIDC (no stored AWS keys): build → Trivy gate → push
 - [ ] TLS on the load balancer
+- [ ] Deploy to EKS from the pipeline; `terraform plan` on pull requests
+- [ ] Pin Python dependencies (reproducible builds) and tighten the scan to HIGH
+- [ ] Branch protection on `master` (the pipeline role trusts it)
+- [ ] Template the secret ARN, RDS endpoint and image tag from Terraform outputs
+- [ ] Stable admin access to the EKS API (fixed IP, VPN or private endpoint only)
 - [ ] NetworkPolicies + Pod Security labels
